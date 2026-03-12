@@ -1,0 +1,39 @@
+name: Sync Migration Flows
+platform: node
+blocks:
+  - action: system/Pliant/git-controller/gitPull
+    name: Pliant_1
+    inputs:
+      - name: authKey
+        value: $sourceAuthentication
+      - name: userName
+        value: '"admin"'
+      - name: folder
+        value: $folderPath
+      - name: pullDto
+        value: "{}"
+variables:
+  - name: sourceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: folderPath
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+meta:
+  workerGroup: default
+  layout: flat
+  version: 5
+finally: null

@@ -1,0 +1,48 @@
+name: Extaract userName
+platform: node
+blocks:
+  - action: system/Common/String/String Replace
+    name: StringReplace_1
+    inputs:
+      - name: str1
+        value: $sourceUserName
+      - name: str2
+        value: "`\\(${$instanceId}\\)`"
+      - name: str3
+        value: '""'
+  - action: assign
+    name: Assign_1
+    variable: $result
+    value: $StringReplace_1.result
+variables:
+  - name: sourceUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      description: Username with instance id username(instanceId)
+  - name: instanceId
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: any
+    value: '""'
+meta:
+  workerGroup: default
+  layout: flat
+  version: 5
+finally: null

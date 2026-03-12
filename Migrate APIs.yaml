@@ -1,0 +1,245 @@
+name: Migrate APIs
+platform: node
+blocks:
+  - action: system/Pliant/application-controller/listApplications
+    name: ReadAPIs
+    inputs:
+      - name: authKey
+        value: $sourceInstanceAuthentication
+      - name: userName
+        value: $sourceUserName
+  - action: foreach-parallel
+    name: ForEachAPI
+    list: $ReadAPIs.result
+    concurrency: "10"
+    blocks:
+      - action: try
+        name: TryCreateApplication
+        try:
+          - action: system/Pliant/application-controller/createApplication
+            name: CreateApplicationOnTarget
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userName
+                value: $targetUserName
+              - name: applicationDto
+                value: $ForEachAPI.item
+          - action: system/Common/Array/Array Push
+            name: LogSuccessApplication
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $CreateApplicationOnTarget.result.name,\
+                  \ \n    \"success\": true,\n    \"type\": \"Application\"\n}"
+        catch:
+          - action: system/Common/Array/Array Push
+            name: LogErrorApplication
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $ForEachAPI.item.name, \n    \"success\"\
+                  : false,\n    \"error\": $TryCreateApplication.message,\n    \"\
+                  type\": \"Application\"\n}"
+      - action: system/Pliant/application-controller/listApplicationEndpoints
+        name: ReadEndpoints
+        inputs:
+          - name: authKey
+            value: $sourceInstanceAuthentication
+          - name: userName
+            value: $sourceUserName
+          - name: applicationName
+            value: $ForEachAPI.item.name
+      - action: foreach
+        name: ForEachEndpoint
+        list: $ReadEndpoints.result
+        blocks:
+          - action: try
+            name: TryCreateEndpoint
+            try:
+              - action: system/Pliant/application-controller/createApplicationEndpoint
+                name: CreateEndpointOnTarget
+                inputs:
+                  - name: authKey
+                    value: $targetInstanceAuthentication
+                  - name: userName
+                    value: $targetUserName
+                  - name: applicationName
+                    value: $ForEachAPI.item.name
+                  - name: endpointDto
+                    value: $ForEachEndpoint.item
+              - action: system/Common/Array/Array Push
+                name: LogSuccessEndpoint
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: "{ \n    \"name\": $CreateEndpointOnTarget.result.method\
+                      \ + \" \" + $CreateEndpointOnTarget.result.path, \n    \"success\"\
+                      : true,\n    \"type\": \"Endpoint\"\n}"
+            catch:
+              - action: system/Common/Array/Array Push
+                name: LogErrorEndpoint
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: "{ \n    \"name\": $ForEachEndpoint.item.method + \" \"\
+                      \ +$ForEachEndpoint.item.path, \n    \"success\": false,\n \
+                      \   \"error\": $TryCreateEndpoint.message,\n    \"type\": \"\
+                      Endpoint\"\n}"
+      - action: system/Pliant/application-controller/listApplicationStages
+        name: ReadStages
+        inputs:
+          - name: authKey
+            value: $sourceInstanceAuthentication
+          - name: userName
+            value: $sourceUserName
+          - name: applicationName
+            value: $ForEachAPI.item.name
+      - action: foreach
+        name: ForEachStage
+        list: $ReadStages.result
+        blocks:
+          - action: try
+            name: TryCreateStage
+            try:
+              - action: system/Pliant/application-controller/createApplicationStage
+                name: CreateStageOnTarget
+                inputs:
+                  - name: authKey
+                    value: $targetInstanceAuthentication
+                  - name: userName
+                    value: $targetUserName
+                  - name: applicationName
+                    value: $ForEachAPI.item.name
+                  - name: stageDto
+                    value: $ForEachStage.item
+              - action: system/Common/Array/Array Push
+                name: LogSuccessStage
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: "{ \n    \"name\": $CreateStageOnTarget.result.name, \n\
+                      \    \"success\": true,\n    \"type\": \"Stage\"\n}"
+            catch:
+              - action: system/Common/Array/Array Push
+                name: LogErrorStage
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: "{ \n    \"name\": $ForEachStage.item.name, \n    \"success\"\
+                      : false,\n    \"error\": $TryCreateStage.message,\n    \"type\"\
+                      : \"Stage\"\n}"
+          - action: system/Pliant/application-controller/listApplicationStageEndpoints
+            name: ReadDeployments
+            inputs:
+              - name: authKey
+                value: $sourceInstanceAuthentication
+              - name: userName
+                value: $sourceUserName
+              - name: applicationName
+                value: $ForEachAPI.item.name
+              - name: stageName
+                value: $ForEachStage.item.name
+          - action: foreach
+            name: ForEachDeployment
+            list: $ReadDeployments.result
+            blocks:
+              - action: try
+                name: TryCreateDeployment
+                try:
+                  - action: system/Pliant/application-controller/upsertApplicationStageEndpoint
+                    name: CreateDeploymentOnTarget
+                    inputs:
+                      - name: authKey
+                        value: $targetInstanceAuthentication
+                      - name: userName
+                        value: $targetUserName
+                      - name: applicationName
+                        value: $ForEachAPI.item.name
+                      - name: stageName
+                        value: $ForEachStage.item.name
+                      - name: method
+                        value: $ForEachDeployment.item.method
+                      - name: path
+                        value: $ForEachDeployment.item.path
+                      - name: stageEndpointDto
+                        value: "JSON.parse(JSON.stringify({...($ForEachDeployment.item),\
+                          \ flowRevision: null}).replaceAll($sourceUserName, $targetUserName))"
+                  - action: system/Common/Array/Array Push
+                    name: LogSuccessDeployment
+                    inputs:
+                      - name: array
+                        value: $logs
+                      - name: item
+                        value: "{ \n    \"name\": $ForEachDeployment.item.method +\
+                          \ \" \" + $ForEachDeployment.item.path, \n    \"success\"\
+                          : true,\n    \"type\": \"Deployment\"\n}"
+                catch:
+                  - action: system/Common/Array/Array Push
+                    name: LogErrorDeployment
+                    inputs:
+                      - name: array
+                        value: $logs
+                      - name: item
+                        value: "{ \n    \"name\": $ForEachDeployment.item.method +\
+                          \ \" \" + $ForEachDeployment.item.path, \n    \"success\"\
+                          : false,\n    \"error\": $TryCreateDeployment.message,\n\
+                          \    \"type\": \"Deployment\"\n}"
+variables:
+  - name: sourceUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: targetUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: sourceInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: logs
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flat
+  version: 5
+finally: null

@@ -1,0 +1,281 @@
+name: Migrate User
+platform: node
+blocks:
+  - action: if
+    name: If_1
+    condition: '!$sourceUserName || !$sourceInstanceAuthentication || !$targetInstanceAuthentication
+      || !$instanceId'
+    then:
+      - action: throw
+        error: '"Missing required input variables!"'
+    else: []
+  - action: ./Extaract userName
+    name: ExtractTargetUserName
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: instanceId
+        value: $instanceId
+  - action: assign
+    name: AssignTargetUserName
+    variable: $targetUserName
+    value: $ExtractTargetUserName.result
+  - action: system/Common/Status Message Update
+    name: StatusUpdateUser
+    inputs:
+      - name: message
+        value: '"Creating the user in target instance..."'
+  - action: ./Create user
+    name: CreateUserTargetInstance
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: instanceId
+        value: $instanceId
+      - name: logs
+        value: $logs.User
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_1
+    inputs:
+      - name: message
+        value: '"Migrating Authentications..."'
+  - action: ./Migrate Authentications
+    name: MigrateAuthentications
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: authentications
+        value: $authentications
+      - name: logs
+        value: $logs.Authentications
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_2
+    inputs:
+      - name: message
+        value: '"Migrating Flows And Folders..."'
+  - action: ./Migrate Flows And Folders
+    name: MigrateFlowsAndFolders
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: logs
+        value: $logs.Flows
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_3
+    inputs:
+      - name: message
+        value: '"Migrating Jobs..."'
+  - action: ./Migrate Jobs
+    name: MigrateJobs
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: logs
+        value: $logs.Jobs
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_4
+    inputs:
+      - name: message
+        value: '"Migrating Exposures..."'
+  - action: ./Migrate Exposures
+    name: MigrateExposures
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: logs
+        value: $logs.Exposures
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_5
+    inputs:
+      - name: message
+        value: '"Migrating Panels And Tiles..."'
+  - action: ./Migrate Panels and Tiles
+    name: MigratePanelsAndTiles
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: logs
+        value: $logs.AutomationCenter
+  - action: system/Common/Status Message Update
+    name: StatusMigrationStep_6
+    inputs:
+      - name: message
+        value: '"Migrating APIs..."'
+  - action: ./Migrate APIs
+    name: MigrateAPIs
+    inputs:
+      - name: sourceUserName
+        value: $sourceUserName
+      - name: targetUserName
+        value: $targetUserName
+      - name: sourceInstanceAuthentication
+        value: $sourceInstanceAuthentication
+      - name: targetInstanceAuthentication
+        value: $targetInstanceAuthentication
+      - name: logs
+        value: $logs.APIs
+variables:
+  - name: sourceUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      description: "The user, whose data is to be copied. Will be in the pseudomultitenat\
+        \ format \"<user>(<instanceId>)\""
+  - name: targetUserName
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      description: This will be computed based on the sourceUserName and the instanceId
+  - name: sourceInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: instanceId
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '"0000-0000-0000-0000"'
+  - name: authentications
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+      items:
+        required:
+          - data
+          - name
+          - serviceName
+        type: object
+        properties:
+          canOverride:
+            uniqueItems: true
+            type: array
+            items:
+              type: string
+          canRead:
+            uniqueItems: true
+            type: array
+            items:
+              type: string
+          data:
+            maxLength: 8192
+            minLength: 0
+            type: object
+          description:
+            maxLength: 500
+            minLength: 0
+            type: string
+          lastUpdated:
+            type: integer
+            format: int64
+          name:
+            maxLength: 250
+            minLength: 0
+            type: string
+            example: string
+          serviceName:
+            maxLength: 50
+            minLength: 0
+            type: string
+            example: string
+          userName:
+            maxLength: 250
+            minLength: 0
+            type: string
+            example: string
+    value: "[]"
+    meta:
+      description: "The authentications of the user, extracted and made available\
+        \ by the trigger functionality"
+  - name: logs
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: |-
+      {
+          "User": [],
+          "Authentications": [],
+          "Flows": [],
+          "AutomationCenter":[],
+          "Exposures":[],
+          "Jobs": [],
+          "APIs": []
+      }
+meta:
+  workerGroup: default
+  description: This is the entrypoint.
+  layout: flow
+  version: 5
+finally: null
