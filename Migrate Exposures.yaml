@@ -1,0 +1,113 @@
+name: Migrate Exposures
+platform: node
+blocks:
+  - action: system/Pliant/flow-exposure-controller/listExposuresByUser
+    name: listSourceExposures
+    inputs:
+      - name: authKey
+        value: $sourceInstanceAuthentication
+      - name: userName
+        value: $sourceUserName
+  - action: foreach-parallel
+    name: foreachSourceExposure
+    list: $listSourceExposures.result
+    concurrency: "10"
+    blocks:
+      - action: try
+        name: tryCreateExposure
+        try:
+          - action: system/Pliant/flow-exposure-controller/createExposure
+            name: createTargetExposure
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userName
+                value: $targetUserName
+              - name: exposureDto
+                value: |-
+                  {
+                      ...JSON.parse(JSON.stringify($foreachSourceExposure.item).replaceAll($sourceUserName, $targetUserName))
+                  }
+              - name: Body
+                value: |-
+                  {
+                      ...JSON.parse(JSON.stringify($foreachSourceExposure.item).replaceAll($sourceUserName, $targetUserName))
+                  }
+          - action: system/Common/Array/Array Push
+            name: ArrayPushSuccess
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $createTargetExposure.result.path, \n  \
+                  \  \"success\": true\n}"
+        catch:
+          - action: system/Common/Array/Array Push
+            name: ArrayPushError
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $foreachSourceExposure.item.path, \n   \
+                  \ \"success\": false,\n    \"error\": $tryCreateExposure.message\n\
+                  }"
+variables:
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: sourceUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: targetUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: sourceInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: logs
+    required: false
+    isInput: true
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flat
+  version: 5
+finally: null

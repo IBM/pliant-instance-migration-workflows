@@ -1,0 +1,113 @@
+name: Migrate Jobs
+platform: node
+blocks:
+  - action: system/Pliant/flow-schedule-controller/listSchedules
+    name: ListJobsFromSourceInstance
+    inputs:
+      - name: authKey
+        value: $sourceInstanceAuthentication
+      - name: userName
+        value: $sourceUserName
+  - action: foreach-parallel
+    name: ForEachJob
+    list: $ListJobsFromSourceInstance.result
+    concurrency: "10"
+    blocks:
+      - action: try
+        name: Try_1
+        try:
+          - action: system/Pliant/flow-schedule-controller/createFlowSchedule
+            name: CreateJobIntoTargetIntance
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userName
+                value: $targetUserName
+              - name: scheduleDto
+                value: "JSON.parse(JSON.stringify({...($ForEachJob.item), flowRevision:\
+                  \ null}).replaceAll($sourceUserName, $targetUserName))"
+          - action: if
+            name: IfOldJobIsEnabled
+            condition: $ForEachJob.item.enabled
+            then:
+              - action: system/Pliant/flow-schedule-controller/updateFlowSchedule
+                name: DisableJobOnSourceInstance
+                inputs:
+                  - name: authKey
+                    value: $sourceInstanceAuthentication
+                  - name: userName
+                    value: $sourceUserName
+                  - name: scheduleName
+                    value: $ForEachJob.item.name
+                  - name: scheduleDto
+                    value: "{...($ForEachJob.item), enabled: false}"
+            else: []
+          - action: system/Common/Array/Array Push
+            name: ArrayPushSuccess
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $CreateJobIntoTargetIntance.result.name,\
+                  \ \n    \"success\": true\n}"
+        catch:
+          - action: system/Common/Array/Array Push
+            name: ArrayPushError
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: "{ \n    \"name\": $ForEachJob.item.name, \n    \"success\"\
+                  : false,\n    \"error\": $Try_1.message\n}"
+variables:
+  - name: sourceUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: targetUserName
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: sourceInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: logs
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flow
+  version: 5
+finally: null

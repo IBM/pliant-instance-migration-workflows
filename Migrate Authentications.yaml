@@ -1,0 +1,159 @@
+name: Migrate Authentications
+platform: node
+blocks:
+  - action: foreach-parallel
+    name: ForEachAuthenticaion
+    list: $authentications
+    concurrency: "10"
+    blocks:
+      - action: try
+        name: Try_1
+        try:
+          - action: system/Pliant/auth-storage-controller/createAuthStorage
+            name: CreateAuthenticationOnTarget
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userName
+                value: $targetUserName
+              - name: storageDto
+                value: "JSON.parse(JSON.stringify($ForEachAuthenticaion.item).replaceAll($sourceUserName,\
+                  \ $targetUserName))"
+          - action: system/Common/Array/Array Push
+            name: ArrayPushSuccess
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $CreateAuthenticationOnTarget.result.name,
+                      success: true
+                  }
+        catch:
+          - action: system/Common/Array/Array Push
+            name: ArrayPushError
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $ForEachAuthenticaion.item.name,
+                      success: false,
+                      error: $Try_1.message
+                  }
+variables:
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: sourceUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: targetUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: sourceInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: authentications
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+      items:
+        required:
+          - data
+          - name
+          - serviceName
+        type: object
+        properties:
+          canOverride:
+            uniqueItems: true
+            type: array
+            items:
+              type: string
+          canRead:
+            uniqueItems: true
+            type: array
+            items:
+              type: string
+          data:
+            maxLength: 8192
+            minLength: 0
+            type: string
+          description:
+            maxLength: 500
+            minLength: 0
+            type: string
+          lastUpdated:
+            type: integer
+            format: int64
+          name:
+            maxLength: 250
+            minLength: 0
+            pattern: "^[^/\\s]+(?:[ ]+[^/\\s]+)*+$"
+            type: string
+            example: string
+          serviceName:
+            maxLength: 50
+            minLength: 0
+            pattern: "^[^/\\s]+(?:[ ]+[^/\\s]+)*+(?:/[^/\\s]+(?:[ ]+[^/\\s]+)*+)*+$"
+            type: string
+            example: string
+          userName:
+            maxLength: 250
+            minLength: 0
+            pattern: "^[^/\\s]+(?:[ ]+[^/\\s]+)*+$"
+            type: string
+            example: string
+    value: "[]"
+  - name: logs
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flow
+  version: 5
+finally: null

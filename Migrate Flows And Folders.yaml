@@ -1,0 +1,290 @@
+name: Migrate Flows And Folders
+platform: node
+blocks:
+  - action: system/Pliant/folder-controller/readFolder
+    name: GetUserFolder
+    inputs:
+      - name: authKey
+        value: $sourceInstanceAuthentication
+      - name: userName
+        value: $sourceUserName
+      - name: folder
+        value: '''/User/'''
+      - name: recursive
+        value: "true"
+      - name: includeFlowProcesses
+        value: "true"
+  - action: assign
+    name: AssignTheFolder
+    variable: $folder
+    value: $GetUserFolder.result
+  - action: system/Common/Array/Array Push
+    name: EnqueueSeed
+    inputs:
+      - name: array
+        value: $queue
+      - name: item
+        value: $folder
+  - action: while
+    name: While
+    condition: $queue.length > 0
+    blocks:
+      - action: system/Common/Array/Array Shift
+        name: ArrayShift
+        inputs:
+          - name: array
+            value: $queue
+      - action: assign
+        name: AssignCurrentDir
+        variable: $currentDir
+        value: $ArrayShift.result
+      - action: assign
+        name: AssignEntries
+        variable: $entries
+        value: $currentDir.folders
+      - action: foreach
+        name: ForEach
+        list: $entries
+        blocks:
+          - action: assign
+            name: AssignEntry
+            variable: $entry
+            value: $ForEach.item
+          - action: system/Common/Array/Array Push
+            name: Enqueu
+            inputs:
+              - name: array
+                value: $queue
+              - name: item
+                value: $entry
+          - action: try
+            name: Try_1
+            try:
+              - action: system/Pliant/folder-controller/createFolder
+                name: CreateFolder
+                inputs:
+                  - name: authKey
+                    value: $targetInstanceAuthentication
+                  - name: userName
+                    value: $targetUserName
+                  - name: folder
+                    value: $currentDir.path
+                  - name: folderDto
+                    value: "{\n    name: $entry.name,\n    meta: $entry.meta ? JSON.parse(JSON.stringify($entry.meta).replaceAll($sourceUserName,\
+                      \ $targetUserName)) : undefined \n}"
+              - action: system/Common/Array/Array Push
+                name: ArrayPushSuccessFolder
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: |-
+                      {
+                          name: $CreateFolder.result.path,
+                          success: true
+                      }
+            catch:
+              - action: system/Common/Array/Array Push
+                name: ArrayPushErrorFolder
+                inputs:
+                  - name: array
+                    value: $logs
+                  - name: item
+                    value: |-
+                      {
+                          name: $currentDir.path,
+                          success: false,
+                          error: $Try_1.message
+                      }
+          - action: foreach-parallel
+            name: ForEachParallel
+            list: $entry.flows
+            concurrency: "10"
+            blocks:
+              - action: try
+                name: Try_2
+                try:
+                  - action: system/Pliant/flow-controller/createFlow
+                    name: CreateFlow
+                    inputs:
+                      - name: authKey
+                        value: $targetInstanceAuthentication
+                      - name: userName
+                        value: $targetUserName
+                      - name: folder
+                        value: $entry.path
+                      - name: flowDto
+                        value: "JSON.parse(JSON.stringify($ForEachParallel.item).replaceAll($sourceUserName,\
+                          \ $targetUserName))"
+                  - action: system/Common/Array/Array Push
+                    name: ArrayPushSuccessFlow
+                    inputs:
+                      - name: array
+                        value: $logs
+                      - name: item
+                        value: |-
+                          {
+                              name: $CreateFlow.result.path,
+                              success: true
+                          }
+                catch:
+                  - action: system/Common/Array/Array Push
+                    name: ArrayPushErrorFlow
+                    inputs:
+                      - name: array
+                        value: $logs
+                      - name: item
+                        value: |-
+                          {
+                              name: $ForEachParallel.item.path,
+                              success: false,
+                              error: $Try_2.message
+                          }
+  - action: foreach-parallel
+    name: ForEachParallelBaseFolder
+    list: $folder.flows
+    concurrency: "10"
+    blocks:
+      - action: try
+        name: Try_3
+        try:
+          - action: system/Pliant/flow-controller/createFlow
+            name: CreateFlowBaseFolder
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userName
+                value: $targetUserName
+              - name: folder
+                value: $folder.path
+              - name: flowDto
+                value: "JSON.parse(JSON.stringify($ForEachParallelBaseFolder.item).replaceAll($sourceUserName,\
+                  \ $targetUserName))"
+          - action: system/Common/Array/Array Push
+            name: ArrayPushSuccessBaseFolder
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $CreateFlowBaseFolder.result.path,
+                      success: true
+                  }
+        catch:
+          - action: system/Common/Array/Array Push
+            name: ArrayPushErrorBaseFolder
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $ForEachParallelBaseFolder.item.path,
+                      success: false,
+                      error: $Try_3.message
+                  }
+  - action: assign
+    name: Assign_1
+    variable: $result
+    value: '"Flows Migrated!"'
+variables:
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: folder
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: queue
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+  - name: currentDir
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: entries
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+  - name: entry
+    required: false
+    isInput: false
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: object
+    value: "{}"
+  - name: sourceUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: targetUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: ''''''
+  - name: sourceInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: logs
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flow
+  version: 5
+finally: null

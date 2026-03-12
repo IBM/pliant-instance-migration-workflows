@@ -1,0 +1,152 @@
+name: Create user
+platform: node
+blocks:
+  - action: system/Pliant/user-controller/readUser
+    name: ReadSourceUser
+    inputs:
+      - name: authKey
+        value: $sourceInstanceAuthentication
+      - name: userName
+        value: $sourceUserName
+  - action: system/Pliant/user-controller/listUsers
+    name: listUsersOnTarget
+    inputs:
+      - name: authKey
+        value: $targetInstanceAuthentication
+  - action: if
+    name: If_1
+    condition: $listUsersOnTarget.result.filter(user=> user.userName === $targetUserName).length
+      !== 1
+    then:
+      - action: try
+        name: Try_1
+        try:
+          - action: system/Pliant/user-controller/createUser
+            name: CreateUserInTargetInstace
+            inputs:
+              - name: authKey
+                value: $targetInstanceAuthentication
+              - name: userDto
+                value: |-
+                  {
+                      "active": true,
+                      "eulaTimestamp": $ReadSourceUser.result.eulaTimestamp,
+                      "eulaVersion": $ReadSourceUser.result.eulaVersion,
+                      "forcePasswordChange": false,
+                      "firstName": $ReadSourceUser.result.firstName || "",
+                      "lastName": $ReadSourceUser.result.lastName || "",
+                      "meta": $ReadSourceUser.result.meta,
+                      "password": "",
+                      "provider": "SOLIS",
+                      "roles": [$ReadSourceUser.result.meta?.extra?.solis?.role?.toUpperCase() || "USER"],
+                      "flowRoles": $ReadSourceUser.result.flowRoles,
+                      "sessionTimeout": $ReadSourceUser.result.sessionTimeout,
+                      "userName": $targetUserName
+                  }
+          - action: system/Common/Array/Array Push
+            name: ArrayPushSuccess
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $targetUserName,
+                      success: true
+                  }
+        catch:
+          - action: system/Common/Array/Array Push
+            name: ArrayPushError
+            inputs:
+              - name: array
+                value: $logs
+              - name: item
+                value: |-
+                  {
+                      name: $targetUserName,
+                      success: false,
+                      error: $Try_1.message
+                  }
+          - action: throw
+            error: $Try_1.message
+    else:
+      - action: system/Common/Array/Array Push
+        name: ArrayPushAlreadyExists
+        inputs:
+          - name: array
+            value: $logs
+          - name: item
+            value: |-
+              {
+                  name: $targetUserName,
+                  success: true,
+                  message: "User already exists!"
+              }
+variables:
+  - name: sourceUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: targetUserName
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: sourceInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: targetInstanceAuthentication
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+    meta:
+      authType: Pliant
+      subType: authentication
+  - name: instanceId
+    required: false
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: string
+    value: '""'
+  - name: result
+    required: false
+    isInput: false
+    isOutput: true
+    level: INTERMEDIATE
+    type:
+      type: any
+    value: '""'
+  - name: logs
+    required: true
+    isInput: true
+    isOutput: false
+    level: INTERMEDIATE
+    type:
+      type: array
+    value: "[]"
+meta:
+  workerGroup: default
+  layout: flow
+  version: 5
+finally: null
