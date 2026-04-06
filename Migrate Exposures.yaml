@@ -52,14 +52,6 @@ blocks:
                   \ \"success\": false,\n    \"error\": $tryCreateExposure.message\n\
                   }"
 variables:
-  - name: result
-    required: false
-    isInput: false
-    isOutput: true
-    level: INTERMEDIATE
-    type:
-      type: object
-    value: "{}"
   - name: sourceUserName
     required: true
     isInput: true

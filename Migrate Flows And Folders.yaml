@@ -184,19 +184,7 @@ blocks:
                       success: false,
                       error: $Try_3.message
                   }
-  - action: assign
-    name: Assign_1
-    variable: $result
-    value: '"Flows Migrated!"'
 variables:
-  - name: result
-    required: false
-    isInput: false
-    isOutput: true
-    level: INTERMEDIATE
-    type:
-      type: object
-    value: "{}"
   - name: folder
     required: false
     isInput: false
@@ -285,6 +273,6 @@ variables:
     value: "[]"
 meta:
   workerGroup: default
-  layout: flow
+  layout: flat
   version: 5
 finally: null
